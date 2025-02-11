@@ -4,12 +4,14 @@ volumes:
   ollama_storage:
   qdrant_storage:
 
+
 networks:
   demo:
 
+
 x-n8n: &service-n8n
   image: n8nio/n8n:latest
-  networks: ['demo']
+  networks: [ 'demo' ]
   environment:
     - DB_TYPE=postgresdb
     - DB_POSTGRESDB_HOST=postgres
@@ -20,11 +22,13 @@ x-n8n: &service-n8n
     - N8N_ENCRYPTION_KEY
     - N8N_USER_MANAGEMENT_JWT_SECRET
     - OLLAMA_HOST=ollama:11434
+  links:
+    - postgres
 
 x-ollama: &service-ollama
   image: ollama/ollama:latest
   container_name: ollama
-  networks: ['demo']
+  networks: [ 'demo' ]
   restart: unless-stopped
   ports:
     - 11434:11434
@@ -33,23 +37,22 @@ x-ollama: &service-ollama
 
 x-init-ollama: &init-ollama
   image: ollama/ollama:latest
-  networks: ['demo']
+  networks: [ 'demo' ]
   container_name: ollama-pull-llama
   volumes:
     - ollama_storage:/root/.ollama
   entrypoint: /bin/sh
-  environment:
-    - OLLAMA_HOST=ollama:11434
   command:
     - "-c"
-    - "sleep 3; ollama pull llama3.2"
+    - "sleep 3; OLLAMA_HOST=ollama:11434 ollama pull llama3.2; OLLAMA_HOST=ollama:11434 ollama pull nomic-embed-text; OLLAMA_HOST=ollama:11434 ollama pull deepseek-r1:1.5b; OLLAMA_HOST=ollama:11434 ollama pull mistral:7b"
 
 services:
   postgres:
     image: postgres:16-alpine
-    hostname: postgres
-    networks: ['demo']
+    networks: [ 'demo' ]
     restart: unless-stopped
+    ports:
+      - 5432:5432
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD
@@ -57,14 +60,13 @@ services:
     volumes:
       - postgres_storage:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      test: [ 'CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}' ]
       interval: 5s
       timeout: 5s
       retries: 10
 
   n8n-import:
     <<: *service-n8n
-    hostname: n8n-import
     container_name: n8n-import
     entrypoint: /bin/sh
     command:
@@ -78,7 +80,6 @@ services:
 
   n8n:
     <<: *service-n8n
-    hostname: n8n
     container_name: n8n
     restart: unless-stopped
     ports:
@@ -95,9 +96,8 @@ services:
 
   qdrant:
     image: qdrant/qdrant
-    hostname: qdrant
     container_name: qdrant
-    networks: ['demo']
+    networks: [ 'demo' ]
     restart: unless-stopped
     ports:
       - 6333:6333
@@ -105,11 +105,11 @@ services:
       - qdrant_storage:/qdrant/storage
 
   ollama-cpu:
-    profiles: ["cpu"]
+    profiles: [ "cpu" ]
     <<: *service-ollama
 
   ollama-gpu:
-    profiles: ["gpu-nvidia"]
+    profiles: [ "gpu-nvidia" ]
     <<: *service-ollama
     deploy:
       resources:
@@ -117,10 +117,10 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
 
   ollama-gpu-amd:
-    profiles: ["gpu-amd"]
+    profiles: [ "gpu-amd" ]
     <<: *service-ollama
     image: ollama/ollama:rocm
     devices:
@@ -128,20 +128,20 @@ services:
       - "/dev/dri"
 
   ollama-pull-llama-cpu:
-    profiles: ["cpu"]
+    profiles: [ "cpu" ]
     <<: *init-ollama
     depends_on:
       - ollama-cpu
 
   ollama-pull-llama-gpu:
-    profiles: ["gpu-nvidia"]
+    profiles: [ "gpu-nvidia" ]
     <<: *init-ollama
     depends_on:
       - ollama-gpu
 
   ollama-pull-llama-gpu-amd:
-    profiles: [gpu-amd]
+    profiles: [ gpu-amd ]
     <<: *init-ollama
     image: ollama/ollama:rocm
     depends_on:
-     - ollama-gpu-amd
+      - ollama-gpu-amd
