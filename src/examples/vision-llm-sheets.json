@@ -1,0 +1,98 @@
+{
+  "nodes": [
+    {
+      "id": "n1",
+      "name": "Webhook Média",
+      "type": "n8n-nodes-base.webhook",
+      "position": { "x": 260, "y": 200 },
+      "parameters": {
+        "path": "media-intake",
+        "httpMethod": "POST"
+      }
+    },
+    {
+      "id": "n2",
+      "name": "Analyser Média",
+      "type": "n8n-nodes-base.openAi",
+      "position": { "x": 520, "y": 400 },
+      "parameters": {
+        "operation": "chat",
+        "model": "gpt-4.1-mini",
+        "inputType": "json",
+        "jsonParameters": true,
+        "messages": [
+          {
+            "role": "system",
+            "content": "Tu es un assistant qui décrit précisément le contenu multimédia."
+          },
+          {
+            "role": "user",
+            "content": "={{$json.body.file}}"
+          }
+        ]
+      },
+      "credentials": {
+        "openAiApi": "{{CREDENTIALS.OPENAI_API}}"
+      }
+    },
+    {
+      "id": "n3",
+      "name": "Structurer Résumé",
+      "type": "n8n-nodes-base.set",
+      "position": { "x": 780, "y": 600 },
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            { "name": "titre", "value": "={{$json.choices[0].message.title}}" },
+            { "name": "description", "value": "={{$json.choices[0].message.content}}" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n4",
+      "name": "Enregistrer Résumé",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": { "x": 1040, "y": 800 },
+      "parameters": {
+        "operation": "append",
+        "sheetId": "={{$env.SHEET_ID}}",
+        "columns": ["titre", "description"]
+      },
+      "credentials": {
+        "googleApi": "{{CREDENTIALS.GOOGLE_API}}"
+      },
+      "notes": "Écrit le résumé structuré dans Google Sheets."
+    }
+  ],
+  "connections": {
+    "Webhook Média": {
+      "main": [
+        [
+          { "node": "Analyser Média", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Analyser Média": {
+      "main": [
+        [
+          { "node": "Structurer Résumé", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Structurer Résumé": {
+      "main": [
+        [
+          { "node": "Enregistrer Résumé", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "meta": {
+    "template": "vision-llm-sheets"
+  },
+  "version": 1
+}
