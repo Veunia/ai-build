@@ -1,0 +1,66 @@
+{
+  "nodes": [
+    {
+      "id": "n1",
+      "name": "Webhook Entrant",
+      "type": "n8n-nodes-base.webhook",
+      "position": { "x": 260, "y": 200 },
+      "parameters": {
+        "path": "lead-inbound",
+        "httpMethod": "POST",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "n2",
+      "name": "Formater Payload",
+      "type": "n8n-nodes-base.set",
+      "position": { "x": 520, "y": 400 },
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            { "name": "email", "value": "={{$json.body.email}}" },
+            { "name": "source", "value": "Landing Page" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n3",
+      "name": "Insérer Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": { "x": 780, "y": 600 },
+      "parameters": {
+        "operation": "append",
+        "sheetId": "={{$env.SHEET_ID}}",
+        "columns": ["email", "source"]
+      },
+      "credentials": {
+        "googleApi": "{{CREDENTIALS.GOOGLE_API}}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Entrant": {
+      "main": [
+        [
+          { "node": "Formater Payload", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Formater Payload": {
+      "main": [
+        [
+          { "node": "Insérer Google Sheets", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "meta": {
+    "template": "basic-webhook"
+  },
+  "version": 1
+}
